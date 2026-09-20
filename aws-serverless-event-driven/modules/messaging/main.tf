@@ -1,0 +1,102 @@
+data "aws_caller_identity" "current" {}
+
+# Enterprise KMS Key for encrypting SNS and SQS at rest
+resource "aws_kms_key" "messaging_key" {
+  description             = "KMS CMK for SNS and SQS encryption in ${var.environment}"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow AWS Services to generate and decrypt data keys"
+        Effect = "Allow"
+        Principal = {
+          Service = [
+            "sns.amazonaws.com",
+            "sqs.amazonaws.com",
+            "events.amazonaws.com"
+          ]
+        }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "messaging_key_alias" {
+  name          = "alias/messaging-key-${var.environment}"
+  target_key_id = aws_kms_key.messaging_key.key_id
+}
+
+# Dead Letter Queue (DLQ) for unprocessed payloads
+resource "aws_sqs_queue" "dlq" {
+  name                              = "event-processing-dlq-${var.environment}"
+  kms_master_key_id                 = aws_kms_key.messaging_key.arn
+  kms_data_key_reuse_period_seconds = 300
+  message_retention_seconds         = 1209600 # 14 days retention for forensic analysis
+}
+
+# Main SQS Queue with Redrive Policy
+resource "aws_sqs_queue" "main_queue" {
+  name                              = "event-processing-queue-${var.environment}"
+  kms_master_key_id                 = aws_kms_key.messaging_key.arn
+  kms_data_key_reuse_period_seconds = 300
+  visibility_timeout_seconds        = 60
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.dlq.arn
+    maxReceiveCount     = 3
+  })
+}
+
+# SNS Topic for Event Fan-out
+resource "aws_sns_topic" "event_topic" {
+  name              = "event-routing-topic-${var.environment}"
+  kms_master_key_id = aws_kms_key.messaging_key.arn
+}
+
+# Subscription: Route SNS messages to SQS
+resource "aws_sns_topic_subscription" "queue_subscription" {
+  topic_arn = aws_sns_topic.event_topic.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.main_queue.arn
+}
+
+# Resource Policy: Allow SNS to publish securely to SQS
+resource "aws_sqs_queue_policy" "main_queue_policy" {
+  queue_url = aws_sqs_queue.main_queue.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "sns.amazonaws.com"
+        }
+        Action   = "sqs:SendMessage"
+        Resource = aws_sqs_queue.main_queue.arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = aws_sns_topic.event_topic.arn
+          }
+        }
+      }
+    ]
+  })
+}
