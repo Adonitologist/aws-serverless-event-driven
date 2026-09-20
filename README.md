@@ -23,6 +23,7 @@ flowchart TD
         GA[GitHub Actions] -->|Validation & Security| TFL[TFLint & tfsec]
         GA -->|Infrastructure Integration Testing| TT[Terratest Go Framework]
     end
+```
 
 Core Technical Highlights
 
@@ -39,7 +40,7 @@ Core Technical Highlights
     Automated Quality Gates: Rigorous CI/CD validation pipeline combining static security analysis (tfsec, tflint), syntax checks, and real infrastructure integration tests via Terratest (Go).
 
 Repository Structure
-Plaintext
+```text
 
 .
 ├── .github/
@@ -58,17 +59,21 @@ Plaintext
 ├── variables.tf                     # Global Input Variables
 ├── outputs.tf                       # API Gateway Endpoint & Resource Outputs
 └── providers.tf                     # Multi-Region Provider Configurations
+```
+
 
 Prerequisites & Setup
+```
 
     AWS CLI configured with active administrator credentials.
 
     Terraform version >= 1.5.0 installed.
 
     Go environment installed (v1.21+) for running Terratest integration suites.
+```
 
 Execution Commands
-
+```
 Initialize Terraform modules and providers:
 Bash
 
@@ -88,7 +93,9 @@ Destroy the infrastructure stack (Zero-Cost Baseline):
 Bash
 
 terraform destroy -auto-approve
+```
 
 Cost Management Notice
-
+```
     Zero-Cost Policy: This enterprise architecture provisions serverless components that scale to zero, but includes stateful resources (such as DynamoDB replicas and KMS keys) and active health checks. Always execute terraform destroy immediately after validation sessions to maintain optimal resource governance.
+```
