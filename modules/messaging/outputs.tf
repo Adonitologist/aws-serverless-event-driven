@@ -17,3 +17,8 @@ output "kms_key_arn" {
   value       = aws_kms_key.messaging_key.arn
   description = "ARN of the KMS key used for messaging encryption"
 }
+
+output "kms_replica_key_arn" {
+  value       = aws_kms_replica_key.messaging_replica.arn
+  description = "ARN of the KMS replica key in the secondary region"
+}

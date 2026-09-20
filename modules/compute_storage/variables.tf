@@ -17,3 +17,13 @@ variable "secondary_region" {
   description = "Region for DynamoDB Global Table replication"
   type        = string
 }
+
+variable "replica_kms_key_arn" {
+  description = "ARN of the KMS replica key for encrypting the DynamoDB replica"
+  type        = string
+}
+
+variable "lambda_runtime" { type = string }
+variable "lambda_memory_size" { type = number }
+variable "lambda_timeout" { type = number }
+variable "dynamodb_billing_mode" { type = string }

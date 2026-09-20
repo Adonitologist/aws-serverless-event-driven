@@ -1,7 +1,7 @@
 # 1. DynamoDB Global Table (Active-Active Replication)
 resource "aws_dynamodb_table" "global_orders" {
   name             = "OrdersTable-${var.environment}"
-  billing_mode     = "PAY_PER_REQUEST"
+  billing_mode     = var.dynamodb_billing_mode
   hash_key         = "orderId"
   stream_enabled   = true
   stream_view_type = "NEW_AND_OLD_IMAGES"
@@ -13,6 +13,7 @@ resource "aws_dynamodb_table" "global_orders" {
 
   replica {
     region_name = var.secondary_region
+    kms_key_arn = var.replica_kms_key_arn
   }
 
   server_side_encryption {
@@ -97,7 +98,9 @@ resource "aws_lambda_function" "event_processor" {
   function_name    = "event-processor-${var.environment}"
   role             = aws_iam_role.lambda_exec_role.arn
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = var.lambda_runtime
+  memory_size      = var.lambda_memory_size
+  timeout          = var.lambda_timeout
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 

@@ -1,10 +1,20 @@
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.secondary]
+    }
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
-# Enterprise KMS Key for encrypting SNS and SQS at rest
+# Enterprise KMS Key (Multi-Region Primary)
 resource "aws_kms_key" "messaging_key" {
   description             = "KMS CMK for SNS and SQS encryption in ${var.environment}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+  multi_region            = true
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -12,9 +22,7 @@ resource "aws_kms_key" "messaging_key" {
       {
         Sid    = "Enable IAM User Permissions"
         Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-        }
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
         Action   = "kms:*"
         Resource = "*"
       },
@@ -28,14 +36,19 @@ resource "aws_kms_key" "messaging_key" {
             "events.amazonaws.com"
           ]
         }
-        Action = [
-          "kms:GenerateDataKey*",
-          "kms:Decrypt"
-        ]
+        Action = ["kms:GenerateDataKey*", "kms:Decrypt"]
         Resource = "*"
       }
     ]
   })
+}
+
+# KMS Replica Key for Secondary Region
+resource "aws_kms_replica_key" "messaging_replica" {
+  provider                = aws.secondary
+  description             = "Multi-Region KMS replica for ${var.environment}"
+  deletion_window_in_days = 7
+  primary_key_arn         = aws_kms_key.messaging_key.arn
 }
 
 resource "aws_kms_alias" "messaging_key_alias" {
@@ -43,15 +56,15 @@ resource "aws_kms_alias" "messaging_key_alias" {
   target_key_id = aws_kms_key.messaging_key.key_id
 }
 
-# Dead Letter Queue (DLQ) for unprocessed payloads
+# Dead Letter Queue (DLQ)
 resource "aws_sqs_queue" "dlq" {
   name                              = "event-processing-dlq-${var.environment}"
   kms_master_key_id                 = aws_kms_key.messaging_key.arn
   kms_data_key_reuse_period_seconds = 300
-  message_retention_seconds         = 1209600 # 14 days retention for forensic analysis
+  message_retention_seconds         = 1209600
 }
 
-# Main SQS Queue with Redrive Policy
+# Main SQS Queue
 resource "aws_sqs_queue" "main_queue" {
   name                              = "event-processing-queue-${var.environment}"
   kms_master_key_id                 = aws_kms_key.messaging_key.arn
@@ -64,37 +77,53 @@ resource "aws_sqs_queue" "main_queue" {
   })
 }
 
-# SNS Topic for Event Fan-out
+# SNS Topic
 resource "aws_sns_topic" "event_topic" {
   name              = "event-routing-topic-${var.environment}"
   kms_master_key_id = aws_kms_key.messaging_key.arn
 }
 
-# Subscription: Route SNS messages to SQS
+# SNS Subscription to SQS
 resource "aws_sns_topic_subscription" "queue_subscription" {
   topic_arn = aws_sns_topic.event_topic.arn
   protocol  = "sqs"
   endpoint  = aws_sqs_queue.main_queue.arn
 }
 
-# Resource Policy: Allow SNS to publish securely to SQS
-resource "aws_sqs_queue_policy" "main_queue_policy" {
-  queue_url = aws_sqs_queue.main_queue.id
+# --- CRITICAL RESOURCE POLICIES ---
 
+# 1. Allow EventBridge to publish securely to SNS (Confused Deputy Protected)
+resource "aws_sns_topic_policy" "eventbridge_sns_policy" {
+  arn = aws_sns_topic.event_topic.arn
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow"
-        Principal = {
-          Service = "sns.amazonaws.com"
+        Principal = { Service = "events.amazonaws.com" }
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.event_topic.arn
+        Condition = {
+          StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
         }
+      }
+    ]
+  })
+}
+
+# 2. Allow SNS to publish securely to SQS
+resource "aws_sqs_queue_policy" "main_queue_policy" {
+  queue_url = aws_sqs_queue.main_queue.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = { Service = "sns.amazonaws.com" }
         Action   = "sqs:SendMessage"
         Resource = aws_sqs_queue.main_queue.arn
         Condition = {
-          ArnEquals = {
-            "aws:SourceArn" = aws_sns_topic.event_topic.arn
-          }
+          ArnEquals = { "aws:SourceArn" = aws_sns_topic.event_topic.arn }
         }
       }
     ]

@@ -21,3 +21,33 @@ variable "domain_name" {
   type        = string
   default     = ""
 }
+
+variable "lambda_runtime" {
+  description = "Runtime environment for the Lambda processor"
+  type        = string
+  default     = "nodejs20.x"
+}
+
+variable "lambda_memory_size" {
+  description = "Allocated memory for the Lambda function in MB"
+  type        = number
+  default     = 128
+}
+
+variable "lambda_timeout" {
+  description = "Timeout for the Lambda function in seconds"
+  type        = number
+  default     = 3
+}
+
+variable "dynamodb_billing_mode" {
+  description = "Billing mode for DynamoDB tables"
+  type        = string
+  default     = "PAY_PER_REQUEST"
+}
+
+variable "api_route_key" {
+  description = "Route key for the API Gateway integration"
+  type        = string
+  default     = "POST /orders"
+}

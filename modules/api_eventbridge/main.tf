@@ -75,7 +75,7 @@ resource "aws_apigatewayv2_integration" "eventbridge_integration" {
 # 7. API Gateway Route
 resource "aws_apigatewayv2_route" "post_event_route" {
   api_id    = aws_apigatewayv2_api.events_api.id
-  route_key = "POST /orders"
+  route_key = var.api_route_key
   target    = "integrations/${aws_apigatewayv2_integration.eventbridge_integration.id}"
 }
 
@@ -85,3 +85,4 @@ resource "aws_apigatewayv2_stage" "default_stage" {
   name        = "$default"
   auto_deploy = true
 }
+

@@ -1,0 +1,5 @@
+# Deployment environment (e.g., dev, staging, prod)
+environment = "dev"
+
+# Secondary region for DynamoDB Global Table active-active replication
+secondary_region = "us-west-2"
