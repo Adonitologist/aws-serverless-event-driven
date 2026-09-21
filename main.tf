@@ -3,7 +3,7 @@ module "messaging" {
   environment = var.environment
   
   providers = {
-    aws           = aws
+    aws         = aws
     aws.secondary = aws.secondary
   }
 }
@@ -12,6 +12,7 @@ module "api_eventbridge" {
   source        = "./modules/api_eventbridge"
   environment   = var.environment
   sns_topic_arn = module.messaging.sns_topic_arn
+  kms_key_arn   = module.messaging.kms_key_arn
   api_route_key = var.api_route_key
 }
 
