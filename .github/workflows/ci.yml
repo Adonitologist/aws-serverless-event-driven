@@ -68,8 +68,9 @@ jobs:
         run: |
           cd tests
           go mod init serverless_test
-          go get github.com/gruntwork-io/terratest/modules/terraform
-          go get github.com/stretchr/testify/assert
+          go get github.com/gruntwork-io/terratest@v0.46.16
+          go get github.com/stretchr/testify
+          go mod tidy
 
       - name: Run Terratest Suite
         run: |
