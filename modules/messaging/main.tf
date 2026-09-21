@@ -1,17 +1,18 @@
 terraform {
   required_providers {
     aws = {
-      source                = "hashicorp/aws"
+      source             = "hashicorp/aws"
       configuration_aliases = [aws.secondary]
     }
   }
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 # Enterprise KMS Key (Multi-Region Primary)
 resource "aws_kms_key" "messaging_key" {
-  description             = "KMS CMK for SNS and SQS encryption in ${var.environment}"
+  description             = "KMS CMK for SNS, SQS, and CloudWatch Logs encryption in ${var.environment}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
   multi_region            = true
@@ -38,6 +39,26 @@ resource "aws_kms_key" "messaging_key" {
         }
         Action = ["kms:GenerateDataKey*", "kms:Decrypt"]
         Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogsToUseTheKey"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnEquals = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/orders-api-test"
+          }
+        }
       }
     ]
   })
