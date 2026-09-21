@@ -45,6 +45,9 @@ jobs:
     name: "Terratest Infrastructure Integration"
     needs: terraform-validate-security
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
