@@ -15,7 +15,8 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 	t.Parallel()
 
 	terraformOptions := &terraform.Options{
-		TerraformDir: "../",
+		TerraformDir:    "../",
+		TerraformBinary: "terraform",
 		Vars: map[string]interface{}{
 			"environment": "test",
 		},
