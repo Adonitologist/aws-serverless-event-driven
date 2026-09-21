@@ -16,12 +16,6 @@ variable "environment" {
   default     = "production"
 }
 
-variable "domain_name" {
-  description = "Optional custom domain name for Route 53 multi-region routing"
-  type        = string
-  default     = ""
-}
-
 variable "lambda_runtime" {
   description = "Runtime environment for the Lambda processor"
   type        = string
