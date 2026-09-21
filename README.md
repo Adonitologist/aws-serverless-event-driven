@@ -1,4 +1,4 @@
-# Enterprise AWS Serverless Event-Driven Architecture
+## Enterprise AWS Serverless Event-Driven Architecture
 
 ![Terraform CI](https://github.com/Adonitologist/aws-serverless-event-driven/actions/workflows/ci.yml/badge.svg)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform_v1.5+-844FBA?logo=terraform)
@@ -33,7 +33,7 @@ Core Technical Highlights
 
     Multi-Region Disaster Recovery: High availability data layer implemented via Amazon DynamoDB Global Tables replicating state across primary and secondary regions, paired with Route 53 health check monitoring.
 
-    Advanced Security & Encryption: Zero plaintext secrets or keys; end-to-end data encryption enforced across SQS, SNS, and DynamoDB using dedicated AWS KMS Customer Managed Keys (CMKs) with automated key rotation.
+    Advanced Security & Encryption: Zero plaintext secrets or keys; end-to-end data encryption enforced across SQS, SNS, and DynamoDB using dedicated AWS KMS Customer Managed Keys (CMKs) with Multi-Region replication and automated key rotation.
 
     Distributed Observability: Full APM instrumentation using AWS X-Ray active tracing across API Gateway, Lambda, and DynamoDB to instantly isolate latency bottlenecks.
 
@@ -60,11 +60,8 @@ Repository Structure
 ├── outputs.tf                       # API Gateway Endpoint & Resource Outputs
 └── providers.tf                     # Multi-Region Provider Configurations
 ```
-
-
 Prerequisites & Setup
 ```
-
     AWS CLI configured with active administrator credentials.
 
     Terraform version >= 1.5.0 installed.
@@ -74,28 +71,35 @@ Prerequisites & Setup
 
 Execution Commands
 ```
-Initialize Terraform modules and providers:
+1. Define Variables:
+Copy the example variables file to configure your deployment environment:
+Bash
+
+cp terraform.tfvars.example terraform.tfvars
+
+2. Initialize Terraform Modules & Providers:
 Bash
 
 terraform init
 
-Validate infrastructure syntax and configuration:
+3. Validate Infrastructure Syntax:
 Bash
 
 terraform validate
 
-Deploy the enterprise serverless architecture:
+4. Deploy the Enterprise Architecture:
 Bash
 
 terraform apply -auto-approve
 
-Destroy the infrastructure stack (Zero-Cost Baseline):
+5. Teardown (Zero-Cost Baseline):
+Destroy the infrastructure stack immediately after validation sessions to prevent ongoing charges for stateful multi-region components:
 Bash
 
 terraform destroy -auto-approve
 ```
-
 Cost Management Notice
 ```
-    Zero-Cost Policy: This enterprise architecture provisions serverless components that scale to zero, but includes stateful resources (such as DynamoDB replicas and KMS keys) and active health checks. Always execute terraform destroy immediately after validation sessions to maintain optimal resource governance.
+    Zero-Cost Policy: This enterprise architecture provisions serverless components that scale to zero, but includes stateful resources (such as DynamoDB global replicas, multi-region KMS keys, and active health checks). Always execute terraform destroy immediately after testing sessions to maintain optimal resource governance.
+
 ```
