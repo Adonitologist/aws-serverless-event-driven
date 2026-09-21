@@ -79,10 +79,11 @@ resource "aws_apigatewayv2_route" "post_event_route" {
   target    = "integrations/${aws_apigatewayv2_integration.eventbridge_integration.id}"
 }
 
-# 8. CloudWatch Log Group for API Gateway Access Logging
+# 8. CloudWatch Log Group for API Gateway Access Logging (Encrypted with CMK)
 resource "aws_cloudwatch_log_group" "api_logs" {
   name              = "/aws/apigateway/orders-api-${var.environment}"
   retention_in_days = 30
+  kms_key_id        = var.kms_key_arn
 }
 
 # 9. API Gateway Stage with Access Logging Enabled
