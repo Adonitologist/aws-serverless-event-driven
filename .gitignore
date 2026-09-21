@@ -1,0 +1,15 @@
+# Local Terrform directories and files
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+.terraformrc
+terraform.tfvars
+
+# Compiled lambda packages
+src/lambda_processor/lambda.zip
+
+# OS metadata
+.DS_Store
+Thumbs.db
