@@ -1,13 +1,16 @@
 variable "environment" {
-  description = "Deployment environment name"
-  type        = string
+  type = string
 }
 
 variable "sns_topic_arn" {
-  description = "ARN of the SNS topic to route validated events to"
-  type        = string
+  type = string
 }
 
 variable "api_route_key" {
   type = string
+}
+
+variable "kms_key_arn" {
+  type        = string
+  description = "KMS Key ARN for CloudWatch Log Group encryption"
 }
