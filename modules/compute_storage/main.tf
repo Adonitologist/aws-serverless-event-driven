@@ -16,6 +16,10 @@ resource "aws_dynamodb_table" "global_orders" {
     kms_key_arn = var.replica_kms_key_arn
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   server_side_encryption {
     enabled     = true
     kms_key_arn = var.kms_key_arn
@@ -53,7 +57,7 @@ resource "aws_iam_role_policy_attachment" "lambda_xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
-# 5. Least-Privilege Custom Policy
+# 5. Least-Privilege Custom Policy (Wildcards removed)
 resource "aws_iam_role_policy" "lambda_custom_policy" {
   name = "lambda-custom-policy-${var.environment}"
   role = aws_iam_role.lambda_exec_role.id
@@ -84,10 +88,7 @@ resource "aws_iam_role_policy" "lambda_custom_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:GetItem"
         ]
-        Resource = [
-          aws_dynamodb_table.global_orders.arn,
-          "${aws_dynamodb_table.global_orders.arn}/*"
-        ]
+        Resource = aws_dynamodb_table.global_orders.arn
       }
     ]
   })
