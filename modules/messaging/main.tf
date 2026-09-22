@@ -151,3 +151,24 @@ resource "aws_sqs_queue_policy" "main_queue_policy" {
     ]
   })
 }
+
+# CloudWatch Alarm: Alerta cuando un mensaje cae en la DLQ
+resource "aws_cloudwatch_metric_alarm" "dlq_not_empty" {
+  alarm_name          = "dlq-messages-visible-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Se dispara si uno o más mensajes fallan el procesamiento 3 veces y caen en la DLQ."
+  
+  dimensions = {
+    QueueName = aws_sqs_queue.dlq.name
+  }
+
+  # En un entorno real, puedes enrutar esta alerta a otro Topic SNS de operaciones (PagerDuty/Slack)
+  # Para mantener todo acoplado en este módulo, utilizamos el mismo topic de eventos.
+  alarm_actions = [aws_sns_topic.event_topic.arn]
+}
