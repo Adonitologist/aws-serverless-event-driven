@@ -357,9 +357,10 @@ resource "aws_sns_topic" "event_topic" {
 
 # SNS Subscription to SQS
 resource "aws_sns_topic_subscription" "queue_subscription" {
-  topic_arn = aws_sns_topic.event_topic.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.main_queue.arn
+  topic_arn            = aws_sns_topic.event_topic.arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.main_queue.arn
+  raw_message_delivery = true
 }
 
 # --- CRITICAL RESOURCE POLICIES ---
@@ -1225,9 +1226,10 @@ resource "aws_sns_topic" "event_topic" {
 
 # SNS Subscription to SQS
 resource "aws_sns_topic_subscription" "queue_subscription" {
-  topic_arn = aws_sns_topic.event_topic.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.main_queue.arn
+  topic_arn            = aws_sns_topic.event_topic.arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.main_queue.arn
+  raw_message_delivery = true
 }
 
 # --- CRITICAL RESOURCE POLICIES ---
@@ -1365,14 +1367,11 @@ exports.handler = async (event) => {
 
   for (const record of event.Records) {
     try {
-      // 1. Unpack the SQS wrapper
+      // 1. Unpack the SQS wrapper directly (SNS wrapper bypassed via raw_message_delivery)
       const sqsBody = JSON.parse(record.body);
       
-      // 2. Unpack the SNS wrapper
-      const snsMessage = JSON.parse(sqsBody.Message);
-      
-      // 3. Extract the EventBridge detail (the actual JSON sent to API Gateway)
-      const orderData = snsMessage.detail;
+      // 2. Extract the EventBridge detail (the actual JSON sent to API Gateway)
+      const orderData = sqsBody.detail;
       const orderId = orderData.orderId || Math.random().toString(36).substring(2, 15);
 
       const command = new PutCommand({
@@ -1482,6 +1481,8 @@ jobs:
 
       - name: Run Terratest Suite
         run: |
+          # Elimina el backend remoto temporalmente para permitir que Terratest use un estado local aislado
+          rm -f backend.tf
           cd tests
           go test -v -timeout 30m serverless_test.go
 
@@ -1492,7 +1493,9 @@ PATH: tests\serverless_test.go
 package test
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -1528,7 +1531,7 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 
 	// Validate HTTP API Endpoint Accessibility with retries
 	url := fmt.Sprintf("%s/orders", apiEndpoint)
-	
+
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -1536,14 +1539,21 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 
+	// Prepare mock payload for the API Gateway EventBridge integration
+	requestBody, _ := json.Marshal(map[string]interface{}{
+		"orderId": "evt-77492-test",
+		"amount":  250.50,
+	})
+
 	// Retry HTTP check until API Gateway stage propagation completes
 	maxRetries := 10
 	var resp *http.Response
 	var err error
 
 	for i := 0; i < maxRetries; i++ {
-		resp, err = client.Get(url)
-		if err == nil {
+		// New buffer must be created on each retry
+		resp, err = client.Post(url, "application/json", bytes.NewBuffer(requestBody))
+		if err == nil && resp.StatusCode == http.StatusOK {
 			break
 		}
 		time.Sleep(3 * time.Second)
@@ -1552,8 +1562,6 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 	assert.NoError(t, err, "API Gateway endpoint should be reachable")
 	if resp != nil {
 		defer resp.Body.Close()
-		// API Gateway route expects POST; GET without proper payload might return 403/404/405, 
-		// but receiving any valid HTTP status confirms routing functionality.
-		assert.True(t, resp.StatusCode > 0, "Received valid HTTP response from API Gateway")
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP 200 OK from API Gateway POST route")
 	}
 }

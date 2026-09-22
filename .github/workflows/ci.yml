@@ -62,6 +62,23 @@ jobs:
         with:
           go-version: '1.21'
 
+      # ---> MOVED DEBUG STEP HERE (Before AWS Credentials) <---
+      - name: Debug Exact OIDC Claims
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const token = await core.getIDToken('sts.amazonaws.com');
+              const payload = token.split('.')[1];
+              const padded = payload.padEnd(payload.length + (4 - payload.length % 4) % 4, '=');
+              const decoded = Buffer.from(padded, 'base64').toString('utf8');
+              const claims = JSON.parse(decoded);
+              console.log("=== EXACT OIDC CLAIMS ===");
+              console.log(JSON.stringify(claims, null, 2));
+            } catch (error) {
+              core.setFailed(error.message);
+            }
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
