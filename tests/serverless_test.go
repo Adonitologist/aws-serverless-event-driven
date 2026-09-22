@@ -54,7 +54,7 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 	})
 
 	// Retry HTTP check until API Gateway stage propagation completes
-	maxRetries := 10
+	maxRetries := 20
 	var resp *http.Response
 	var err error
 
