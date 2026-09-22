@@ -106,9 +106,10 @@ resource "aws_sns_topic" "event_topic" {
 
 # SNS Subscription to SQS
 resource "aws_sns_topic_subscription" "queue_subscription" {
-  topic_arn = aws_sns_topic.event_topic.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.main_queue.arn
+  topic_arn            = aws_sns_topic.event_topic.arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.main_queue.arn
+  raw_message_delivery = true
 }
 
 # --- CRITICAL RESOURCE POLICIES ---

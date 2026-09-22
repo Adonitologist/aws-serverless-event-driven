@@ -10,14 +10,11 @@ exports.handler = async (event) => {
 
   for (const record of event.Records) {
     try {
-      // 1. Unpack the SQS wrapper
+      // 1. Unpack the SQS wrapper directly (SNS wrapper bypassed via raw_message_delivery)
       const sqsBody = JSON.parse(record.body);
       
-      // 2. Unpack the SNS wrapper
-      const snsMessage = JSON.parse(sqsBody.Message);
-      
-      // 3. Extract the EventBridge detail (the actual JSON sent to API Gateway)
-      const orderData = snsMessage.detail;
+      // 2. Extract the EventBridge detail (the actual JSON sent to API Gateway)
+      const orderData = sqsBody.detail;
       const orderId = orderData.orderId || Math.random().toString(36).substring(2, 15);
 
       const command = new PutCommand({

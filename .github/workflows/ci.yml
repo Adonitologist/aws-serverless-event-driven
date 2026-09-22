@@ -79,5 +79,7 @@ jobs:
 
       - name: Run Terratest Suite
         run: |
+          # Elimina el backend remoto temporalmente para permitir que Terratest use un estado local aislado
+          rm -f backend.tf
           cd tests
           go test -v -timeout 30m serverless_test.go

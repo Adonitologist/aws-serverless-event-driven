@@ -1,7 +1,9 @@
 package test
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -37,7 +39,7 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 
 	// Validate HTTP API Endpoint Accessibility with retries
 	url := fmt.Sprintf("%s/orders", apiEndpoint)
-	
+
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -45,14 +47,21 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 
+	// Prepare mock payload for the API Gateway EventBridge integration
+	requestBody, _ := json.Marshal(map[string]interface{}{
+		"orderId": "evt-77492-test",
+		"amount":  250.50,
+	})
+
 	// Retry HTTP check until API Gateway stage propagation completes
 	maxRetries := 10
 	var resp *http.Response
 	var err error
 
 	for i := 0; i < maxRetries; i++ {
-		resp, err = client.Get(url)
-		if err == nil {
+		// New buffer must be created on each retry
+		resp, err = client.Post(url, "application/json", bytes.NewBuffer(requestBody))
+		if err == nil && resp.StatusCode == http.StatusOK {
 			break
 		}
 		time.Sleep(3 * time.Second)
@@ -61,8 +70,6 @@ func TestTerraformAwsServerlessEventDriven(t *testing.T) {
 	assert.NoError(t, err, "API Gateway endpoint should be reachable")
 	if resp != nil {
 		defer resp.Body.Close()
-		// API Gateway route expects POST; GET without proper payload might return 403/404/405, 
-		// but receiving any valid HTTP status confirms routing functionality.
-		assert.True(t, resp.StatusCode > 0, "Received valid HTTP response from API Gateway")
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP 200 OK from API Gateway POST route")
 	}
 }
